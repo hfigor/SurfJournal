@@ -90,7 +90,9 @@ private extension JournalListViewController {
   func exportCSVFile() {
     navigationItem.leftBarButtonItem = activityIndicatorBarButtonItem()
 
-    let context = coreDataStack.mainContext
+    let context = coreDataStack.mainContext  //using main context - BAD
+    // coreDataStack.storeContainer.performBackgroundTask{ (context) in
+      
     var results: [JournalEntry] = []
     do {
       results = try context.fetch(self.surfJournalFetchRequest())

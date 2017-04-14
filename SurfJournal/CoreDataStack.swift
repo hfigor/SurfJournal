@@ -36,7 +36,7 @@ class CoreDataStack {
     let container = NSPersistentContainer(name: self.modelName)
     self.seedCoreDataContainerIfFirstLaunch()
     container.loadPersistentStores { (storeDescription, error) in
-      if let error = error as? NSError {
+      if let error = error as NSError? {
         fatalError("Unresolved error \(error), \(error.userInfo)")
       }
     }
