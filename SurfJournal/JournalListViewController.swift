@@ -41,21 +41,43 @@ class JournalListViewController: UITableViewController {
 
   // MARK: Navigation
   override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-
+    // 1  pg 236
     if segue.identifier == "SegueListToDetail" {
 
+      // 2
       guard let navigationController = segue.destination as? UINavigationController,
         let detailViewController = navigationController.topViewController as? JournalEntryViewController,
         let indexPath = tableView.indexPathForSelectedRow else {
           fatalError("Application storyboard mis-configuration")
       }
-
+      // 3
       let surfJournalEntry = fetchedResultsController.object(at: indexPath)
 
+      /* using main context
+      // 4
       detailViewController.journalEntry = surfJournalEntry
       detailViewController.context = surfJournalEntry.managedObjectContext
       detailViewController.delegate = self
-
+      */
+      
+      // MARK: Child context
+      
+      // 1 pg 239
+      let childContext =
+        NSManagedObjectContext(
+          concurrencyType: .mainQueueConcurrencyType)
+      childContext.parent = coreDataStack.mainContext
+      
+      // 2
+      let childEntry =
+      childContext.object(with: surfJournalEntry.objectID)
+        as? JournalEntry
+      
+      // 3
+      detailViewController.journalEntry = childEntry
+      detailViewController.context = childContext
+      detailViewController.delegate = self
+      
     } else if segue.identifier == "SegueListToDetailAdd" {
 
       guard let navigationController = segue.destination as? UINavigationController,
@@ -90,8 +112,8 @@ private extension JournalListViewController {
   func exportCSVFile() {
     navigationItem.leftBarButtonItem = activityIndicatorBarButtonItem()
 
-    let context = coreDataStack.mainContext  //using main context - BAD
-    // coreDataStack.storeContainer.performBackgroundTask{ (context) in
+    //let context = coreDataStack.mainContext  //using main context - BAD
+    coreDataStack.storeContainer.performBackgroundTask{ (context) in
       
     var results: [JournalEntry] = []
     do {
@@ -112,28 +134,33 @@ private extension JournalListViewController {
       fileHandle = nil
     }
 
-    if let fileHandle = fileHandle {
-
-      for journalEntry in results {
-        fileHandle.seekToEndOfFile()
-        guard let csvData = journalEntry
-          .csv()
-          .data(using: .utf8, allowLossyConversion: false) else {
-            continue
+      if let fileHandle = fileHandle {
+        
+        for journalEntry in results {
+          fileHandle.seekToEndOfFile()
+          guard let csvData = journalEntry
+            .csv()
+            .data(using: .utf8, allowLossyConversion: false) else {
+              continue
+          }
+          
+          fileHandle.write(csvData)
         }
-
-        fileHandle.write(csvData)
-      }
-
-      fileHandle.closeFile()
-
-      print("Export Path: \(exportFilePath)")
-      self.navigationItem.leftBarButtonItem = self.exportBarButtonItem()
-      self.showExportFinishedAlertView(exportFilePath)
-
-    } else {
+        
+        fileHandle.closeFile()
+        
+        print("Export Path: \(exportFilePath)")
+        //6
+        DispatchQueue.main.async {
+          
+          self.navigationItem.leftBarButtonItem = self.exportBarButtonItem()
+          self.showExportFinishedAlertView(exportFilePath)
+          
+        }
+      }else {
       self.navigationItem.leftBarButtonItem = self.exportBarButtonItem()
     }
+      }
   }
 
   // MARK: Export
@@ -275,6 +302,7 @@ extension JournalListViewController: JournalEntryDelegate {
   
   func didFinish(viewController: JournalEntryViewController, didSave: Bool) {
 
+    // 1
     guard didSave,
       let context = viewController.context,
       context.hasChanges else {
@@ -282,6 +310,7 @@ extension JournalListViewController: JournalEntryDelegate {
         return
     }
 
+    // 2
     context.perform {
       do {
         try context.save()
@@ -289,9 +318,11 @@ extension JournalListViewController: JournalEntryDelegate {
         fatalError("Error: \(error.localizedDescription)")
       }
 
+      // 3
       self.coreDataStack.saveContext()
     }
 
+    // 4
     dismiss(animated: true)
   }
 }
